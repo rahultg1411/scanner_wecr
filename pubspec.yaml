@@ -20,6 +20,8 @@ dependencies:
   firebase_ml_vision: ^0.10.0
   firebase_core: ^0.5.0
   url_launcher: ^6.0.5
+  contacts_service: ^0.4.6
+  permission_handler: ^5.0.1+1
 
 dev_dependencies:
   flutter_test:

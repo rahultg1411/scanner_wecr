@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:contacts_service/contacts_service.dart';
 
 enum AppState {
   free,
@@ -16,6 +18,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  TextEditingController fName;
+  TextEditingController sName;
+  TextEditingController pNumber;
+  Permission permission;
+  Contact contact;
   AppState state;
   File _image;
   final picker = ImagePicker();
@@ -25,6 +32,10 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     state = AppState.free;
+    fName = TextEditingController();
+    sName = TextEditingController();
+    pNumber = TextEditingController();
+    permission = Permission.contacts;
   }
 
   Future getImage() async {
@@ -68,7 +79,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('OCR App'),
+        backgroundColor: Colors.blueGrey[900],
+        title: Text('Scanner'),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
@@ -81,6 +93,7 @@ class _HomePageState extends State<HomePage> {
         child: buildButtonIcon(),
       ),
       body: Container(
+        color: Colors.blueGrey[600],
         height: MediaQuery.of(context).size.height,
         width: MediaQuery.of(context).size.width,
         child: SingleChildScrollView(
@@ -134,13 +147,9 @@ class _HomePageState extends State<HomePage> {
       return Container();
   }
 
-  /*void _launchURL() async {
+  _launchURL(String url) async {
     print("Launching");
     print(_exp);
-    if (!await launch(_exp)) throw 'Could not launch $_exp';
-  }*/
-
-  _launchURL(String url) async {
     if (await canLaunch(url)) {
       await launch(url);
     } else {
@@ -148,10 +157,68 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _launchPhno() async {
-    print("Launching");
-    print(_exp);
-    if (!await launch('www.google.com/')) throw 'Could not launch $_exp';
+  void _launchPhno(String phno) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          "Add Contact",
+        ),
+        content: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: <Widget>[
+            TextField(
+              controller: fName,
+              autofocus: true,
+              decoration: InputDecoration(labelText: "First Name"),
+            ),
+            TextField(
+              controller: sName,
+              decoration: InputDecoration(labelText: "Last Name"),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          ElevatedButton(
+            onPressed: () async {
+              if (fName.text.isNotEmpty || sName.text.isNotEmpty) {
+                setState(() {
+                  contact = Contact(
+                    givenName: fName.text,
+                    familyName: sName.text,
+                    phones: [Item(value: phno)],
+                  );
+                });
+                await ContactsService.addContact(contact);
+              }
+              Navigator.pop(context);
+
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  content: Text(
+                    "Contact added",
+                  ),
+                  actions: <Widget>[
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        "Ok",
+                      ),
+                    )
+                  ],
+                ),
+              );
+            },
+            child: Text(
+              "Add",
+            ),
+          )
+        ],
+      ),
+    );
   }
 
   void getText() async {
@@ -165,15 +232,14 @@ class _HomePageState extends State<HomePage> {
     phoneExp =
         RegExp(r"^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$", caseSensitive: false);
 
-    _launchURL(_exp);
+    //_launchPhno(_exp.replaceAll(' ', '').toLowerCase());
 
-    if (urlExp.hasMatch(_exp.toLowerCase())) {
-      print("ffffffffffffffffffffffffffff");
-      _launchURL(_exp);
+    if (urlExp.hasMatch(_exp.replaceAll(' ', '').toLowerCase())) {
+      _launchURL(_exp.replaceAll(' ', '').toLowerCase());
     }
 
-    if (phoneExp.hasMatch(_exp.toLowerCase())) {
-      _launchPhno();
+    if (phoneExp.hasMatch(_exp.replaceAll(' ', '').toLowerCase())) {
+      _launchPhno(_exp.replaceAll(' ', '').toLowerCase());
     }
 
     setState(() {
