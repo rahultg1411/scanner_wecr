@@ -1,2 +1,2 @@
-# OCR App
+  Scanner App
 
