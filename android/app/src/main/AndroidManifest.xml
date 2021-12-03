@@ -11,7 +11,7 @@
     <application
         android:name="io.flutter.app.FlutterApplication"
         android:requestLegacyExternalStorage="true"
-        android:label="Flutter OCR"
+        android:label="Scanner"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
         <activity

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +11,7 @@ import 'package:contacts_service/contacts_service.dart';
 enum AppState {
   free,
   picked,
+  cropped,
 }
 
 class HomePage extends StatefulWidget {
@@ -75,22 +77,62 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
+  Future<Null> cropImage() async {
+    File croppedFile = await ImageCropper.cropImage(
+        sourcePath: _image.path,
+        aspectRatioPresets: Platform.isAndroid
+            ? [
+                CropAspectRatioPreset.square,
+                CropAspectRatioPreset.ratio3x2,
+                CropAspectRatioPreset.original,
+                CropAspectRatioPreset.ratio4x3,
+                CropAspectRatioPreset.ratio16x9
+              ]
+            : [
+                CropAspectRatioPreset.original,
+                CropAspectRatioPreset.square,
+                CropAspectRatioPreset.ratio3x2,
+                CropAspectRatioPreset.ratio4x3,
+                CropAspectRatioPreset.ratio5x3,
+                CropAspectRatioPreset.ratio5x4,
+                CropAspectRatioPreset.ratio7x5,
+                CropAspectRatioPreset.ratio16x9
+              ],
+        androidUiSettings: AndroidUiSettings(
+            toolbarTitle: 'Crop the Image',
+            toolbarColor: Color(0xff375079),
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false),
+        iosUiSettings: IOSUiSettings(
+          title: 'Cropper',
+        ));
+    if (croppedFile != null) {
+      _image = croppedFile;
+      setState(() {
+        state = AppState.cropped;
+      });
+    }
+  }
+
+  String buildButtonIcon() {
+    if (state == AppState.free)
+      return 'Scan';
+    else if (state == AppState.picked)
+      return 'Crop Image';
+    else if (state == AppState.cropped)
+      return 'Go';
+    else
+      return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.blueGrey[900],
         title: Text('Scanner'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          if (state == AppState.free) {
-            getImage();
-          } else if (state == AppState.picked) {
-            getText();
-          }
-        },
-        child: buildButtonIcon(),
+        centerTitle: true,
       ),
       body: Container(
         color: Colors.blueGrey[600],
@@ -101,22 +143,29 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SizedBox(height: 20),
+              SizedBox(height: 50),
               _image == null
-                  ? Text(
-                      'No image selected.',
-                      style: TextStyle(fontSize: 20, color: Colors.white),
+                  ? Container(
+                      height: 300,
+                      width: 300,
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                          image: AssetImage('assets/img.png'),
+                          fit: BoxFit.fill,
+                        ),
+                        shape: BoxShape.circle,
+                      ),
                     )
                   : Container(
                       height: 300, width: 300, child: Image.file(_image)),
-              SizedBox(height: 20),
+              SizedBox(height: 10),
               script.text != null
                   ? Padding(
                       padding: const EdgeInsets.all(32.0),
                       child: TextFormField(
                         controller: script,
-                        minLines: 5,
-                        maxLines: 100,
+                        minLines: 1,
+                        maxLines: 20,
                         style: TextStyle(color: Colors.black, fontSize: 16),
                         onChanged: (val) {
                           setState(() {});
@@ -124,27 +173,36 @@ class _HomePageState extends State<HomePage> {
                       ),
                     )
                   : Text("No Text found"),
-              SizedBox(height: 20),
+              SizedBox(height: 10),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.pink,
+                  fixedSize: const Size(170, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+                child: Text(
+                  buildButtonIcon(),
+                  style: new TextStyle(
+                    fontSize: 20.0,
+                    color: Colors.black,
+                  ),
+                ),
+                onPressed: () {
+                  if (state == AppState.free) {
+                    getImage();
+                  } else if (state == AppState.picked)
+                    cropImage();
+                  else if (state == AppState.cropped) getText();
+                },
+              ),
+              SizedBox(height: 40),
             ],
           ),
         ),
       ),
     );
-  }
-
-  Widget buildButtonIcon() {
-    if (state == AppState.free)
-      return Icon(
-        Icons.add,
-        color: Colors.white,
-      );
-    else if (state == AppState.picked)
-      return Icon(
-        Icons.arrow_right,
-        color: Colors.white,
-      );
-    else
-      return Container();
   }
 
   _launchURL(String url) async {
@@ -226,19 +284,12 @@ class _HomePageState extends State<HomePage> {
     RegExp urlExp;
     RegExp phoneExp;
 
-    urlExp = RegExp(
-        r"^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$",
-        caseSensitive: false);
-    phoneExp =
-        RegExp(r"^(\+91[\-\s]?)?[0]?(91)?[789]\d{9}$", caseSensitive: false);
+    urlExp = RegExp(r'(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-?=%.]+');
+    phoneExp = RegExp(r'(^(?:[+0]9)?[0-9]{10,12}$)');
 
-    //_launchPhno(_exp.replaceAll(' ', '').toLowerCase());
-
-    if (urlExp.hasMatch(_exp.replaceAll(' ', '').toLowerCase())) {
+    if (urlExp.hasMatch(_exp.replaceAll(' ', ''))) {
       _launchURL(_exp.replaceAll(' ', '').toLowerCase());
-    }
-
-    if (phoneExp.hasMatch(_exp.replaceAll(' ', '').toLowerCase())) {
+    } else {
       _launchPhno(_exp.replaceAll(' ', '').toLowerCase());
     }
 
